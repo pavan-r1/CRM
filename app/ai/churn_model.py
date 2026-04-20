@@ -120,11 +120,11 @@ def build_feature_table() -> pd.DataFrame:
 
     usage = usage.sort_values(["customer_id", "month"])
 
-    def usage_decline(group: pd.DataFrame) -> float:
-        if len(group) < 6:
+    def usage_decline(values: pd.Series) -> float:
+        if len(values) < 6:
             return 0.0
-        first = group["gb_used"].head(6).mean()
-        last = group["gb_used"].tail(6).mean()
+        first = values.head(6).mean()
+        last = values.tail(6).mean()
         if first <= 0:
             return 0.0
         return max(0.0, float((first - last) / first * 100))
@@ -134,8 +134,12 @@ def build_feature_table() -> pd.DataFrame:
         avg_incidents=("incidents", "mean"),
         max_active_devices=("active_devices", "max"),
     )
-    usage_decline_series = usage.groupby("customer_id").apply(usage_decline).rename("usage_decline_pct")
-    usage_summary = usage_summary.join(usage_decline_series, how="left")
+    usage_decline_series = (
+        usage.groupby("customer_id", sort=False)["gb_used"]
+        .agg(usage_decline)
+        .rename("usage_decline_pct")
+    )
+    usage_summary = usage_summary.join(usage_decline_series.to_frame(), how="left")
 
     features = customers.merge(ticket_summary, left_on="id", right_index=True, how="left")
     features = features.merge(usage_summary, left_on="id", right_index=True, how="left")
