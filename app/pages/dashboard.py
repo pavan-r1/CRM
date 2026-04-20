@@ -34,9 +34,14 @@ def _ensure_scores_ready() -> None:
     if repository.latest_health_scores().empty:
         health_score.refresh_all_health_scores()
         _clear_dashboard_cache()
-    if repository.latest_churn_predictions().empty:
-        churn_model.train_and_score()
+
+
+def _train_model_if_requested() -> None:
+    if st.button("Train Model"):
+        with st.spinner("Training churn model..."):
+            churn_model.train_and_score()
         _clear_dashboard_cache()
+        st.success("Churn model trained and predictions refreshed.")
 
 
 def _region_churn_distribution() -> None:
@@ -234,6 +239,17 @@ def render() -> None:
     st.caption("Portfolio health and churn intelligence at a glance for leadership decisions.")
 
     _ensure_scores_ready()
+
+    control_left, control_right = st.columns(2)
+    with control_left:
+        _train_model_if_requested()
+    with control_right:
+        if st.button("Refresh Health Scores"):
+            with st.spinner("Refreshing health scores..."):
+                health_score.refresh_all_health_scores()
+            _clear_dashboard_cache()
+            st.success("Health scores refreshed.")
+
     _metrics_block()
 
     col1, col2 = st.columns(2)

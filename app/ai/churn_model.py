@@ -118,28 +118,31 @@ def build_feature_table() -> pd.DataFrame:
         avg_resolution_days=("resolution_days", "mean"),
     )
 
-    usage = usage.sort_values(["customer_id", "month"])
+    if usage.empty:
+        usage_summary = pd.DataFrame(
+            columns=["avg_gb_used", "avg_incidents", "max_active_devices", "usage_decline_pct"]
+        )
+        usage_summary.index.name = "customer_id"
+    else:
+        usage = usage.sort_values(["customer_id", "month"])
 
-    def usage_decline(values: pd.Series) -> float:
-        if len(values) < 6:
-            return 0.0
-        first = values.head(6).mean()
-        last = values.tail(6).mean()
-        if first <= 0:
-            return 0.0
-        return max(0.0, float((first - last) / first * 100))
+        usage_summary = usage.groupby("customer_id", sort=False).agg(
+            avg_gb_used=("gb_used", "mean"),
+            avg_incidents=("incidents", "mean"),
+            max_active_devices=("active_devices", "max"),
+        )
 
-    usage_summary = usage.groupby("customer_id").agg(
-        avg_gb_used=("gb_used", "mean"),
-        avg_incidents=("incidents", "mean"),
-        max_active_devices=("active_devices", "max"),
-    )
-    usage_decline_series = (
-        usage.groupby("customer_id", sort=False)["gb_used"]
-        .agg(usage_decline)
-        .rename("usage_decline_pct")
-    )
-    usage_summary = usage_summary.join(usage_decline_series.to_frame(), how="left")
+        usage_decline_series = (
+            usage.groupby("customer_id", sort=False)["gb_used"]
+            .apply(lambda x: (float(x.iloc[-1]) - float(x.iloc[0])) / max(float(x.iloc[0]), 1.0) * 100.0)
+            .reset_index(name="usage_decline_pct")
+        )
+
+        usage_summary = (
+            usage_summary.reset_index()
+            .merge(usage_decline_series, on="customer_id", how="left")
+            .set_index("customer_id")
+        )
 
     features = customers.merge(ticket_summary, left_on="id", right_index=True, how="left")
     features = features.merge(usage_summary, left_on="id", right_index=True, how="left")
