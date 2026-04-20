@@ -53,3 +53,7 @@ It includes:
 - Churn metrics displayed in-app after model training.
 - 200+ records can be validated from overview metric and seeded summary.
 - Design details are documented in `docs/design.md`.
+
+## 🚀 Live Demo
+
+👉 [Open Smart Customer Management Portal](https://smartcustomer.streamlit.app/)
